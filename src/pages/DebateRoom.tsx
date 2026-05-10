@@ -25,6 +25,7 @@ interface Message {
     logic: number;
     structure: number;
     fillerWords: number;
+    explanation?: string;
   };
 }
 
@@ -503,6 +504,19 @@ const DebateRoom = () => {
     }
   };
 
+  const gradeArgumentWithAI = async (text: string): Promise<{clarity: number, logic: number, structure: number, explanation: string} | null> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('grade-argument', {
+        body: { text, topic: state?.topic, persona: state?.persona, difficulty: state?.difficulty }
+      });
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.warn('AI grading failed, falling back to heuristics:', err);
+      return null;
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!userInput.trim() || !debateId) return;
 
@@ -513,47 +527,49 @@ const DebateRoom = () => {
       console.log('Pre-created audio element for mobile compatibility');
     }
 
-    // Add user message
-    const userMessage: Message = {
-      role: 'user',
-      content: userInput
-    };
-    
-    const score = analyzeArgument(userInput);
-    userMessage.score = score;
-    
-    setMessages(prev => [...prev, userMessage]);
+    const capturedInput = userInput;
     setUserInput('');
-    const scoreValue = Object.values(score).reduce((a, b) => a + b, 0) / 4;
+
+    // Add user message immediately (scores pending)
+    setMessages(prev => [...prev, { role: 'user', content: capturedInput }]);
+
+    // Run AI response + LLM-as-judge grading in parallel — zero added latency
+    const [aiResponse, aiGrade] = await Promise.all([
+      generateAiResponse(capturedInput, {}),
+      gradeArgumentWithAI(capturedInput),
+    ]);
+
+    // Use AI grade if available, fall back to heuristics
+    const heuristic = analyzeArgument(capturedInput);
+    const score = aiGrade
+      ? { clarity: aiGrade.clarity, logic: aiGrade.logic, structure: aiGrade.structure, fillerWords: heuristic.fillerWords, explanation: aiGrade.explanation }
+      : heuristic;
+
+    // Update user message with score
+    setMessages(prev => prev.map((m, i) =>
+      i === prev.length - 1 && m.role === 'user' ? { ...m, score } : m
+    ));
+
+    const scoreValue = (score.clarity + score.logic + score.structure) / 3;
     setTotalScore(prev => prev + scoreValue);
 
-    // Generate AI response
-    const aiResponse = await generateAiResponse(userInput, score);
-    
-    // Score the AI response
-    const aiResponseScore = analyzeArgument(aiResponse);
-    const aiMessage: Message = {
-      role: 'ai',
-      content: aiResponse,
-      score: aiResponseScore
-    };
-    
+    // Add AI response
+    const aiMessage: Message = { role: 'ai', content: aiResponse };
     setMessages(prev => [...prev, aiMessage]);
-    
-    // Update AI total score
-    const aiScoreValue = Object.values(aiResponseScore).reduce((a, b) => a + b, 0) / 4;
+    const aiScoreValue = (heuristic.clarity + heuristic.logic + heuristic.structure) / 3;
     setAiScore(prev => prev + aiScoreValue);
-    
+
     // Save turn to database
-    await supabase.from('debate_turns').insert({
+    await (supabase.from('debate_turns') as any).insert({
       debate_id: debateId,
       turn_number: round,
-      user_text: userInput,
+      user_text: capturedInput,
       ai_text: aiResponse,
       score_clarity: score.clarity,
       score_logic: score.logic,
       score_structure: score.structure,
-      filler_words: 0
+      score_explanation: score.explanation || null,
+      filler_words: 0,
     });
     
     if (isSoundOn && preparedAudio) {
@@ -669,48 +685,45 @@ const DebateRoom = () => {
 
             if (transcriptData.text) {
               console.log('Transcribed:', transcriptData.text);
-              
-              // Step 2: Add user message
-              const userMessage: Message = {
-                role: 'user',
-                content: transcriptData.text
-              };
-              
-              const score = analyzeArgument(transcriptData.text);
-              userMessage.score = score;
-              
-              setMessages(prev => [...prev, userMessage]);
-              setUserInput('');
-              setTotalScore(prev => prev + Object.values(score).reduce((a, b) => a + b, 0) / 4);
+              const spokenText = transcriptData.text;
 
-              // Step 3: Generate AI response
-              console.log('Generating AI response...');
-              const aiResponse = await generateAiResponse(transcriptData.text, score);
-              
-              // Score the AI response
-              const aiResponseScore = analyzeArgument(aiResponse);
-              const aiMessage: Message = {
-                role: 'ai',
-                content: aiResponse,
-                score: aiResponseScore
-              };
-              
-              setMessages(prev => [...prev, aiMessage]);
-              
-              // Update AI total score
-              const aiScoreValue = Object.values(aiResponseScore).reduce((a, b) => a + b, 0) / 4;
-              setAiScore(prev => prev + aiScoreValue);
-              
+              // Add user message immediately
+              setMessages(prev => [...prev, { role: 'user', content: spokenText }]);
+              setUserInput('');
+
+              // Run AI response + LLM-as-judge grading in parallel
+              const [aiResponse, aiGrade] = await Promise.all([
+                generateAiResponse(spokenText, {}),
+                gradeArgumentWithAI(spokenText),
+              ]);
+
+              const heuristic = analyzeArgument(spokenText);
+              const score = aiGrade
+                ? { clarity: aiGrade.clarity, logic: aiGrade.logic, structure: aiGrade.structure, fillerWords: heuristic.fillerWords, explanation: aiGrade.explanation }
+                : heuristic;
+
+              // Update user message with score
+              setMessages(prev => prev.map((m, i) =>
+                i === prev.length - 1 && m.role === 'user' ? { ...m, score } : m
+              ));
+              setTotalScore(prev => prev + (score.clarity + score.logic + score.structure) / 3);
+
+              // Add AI response
+              setMessages(prev => [...prev, { role: 'ai', content: aiResponse }]);
+              const aiHeuristic = analyzeArgument(aiResponse);
+              setAiScore(prev => prev + (aiHeuristic.clarity + aiHeuristic.logic + aiHeuristic.structure) / 3);
+
               // Save turn to database
-              await supabase.from('debate_turns').insert({
+              await (supabase.from('debate_turns') as any).insert({
                 debate_id: debateId,
                 turn_number: round,
-                user_text: transcriptData.text,
+                user_text: spokenText,
                 ai_text: aiResponse,
                 score_clarity: score.clarity,
                 score_logic: score.logic,
                 score_structure: score.structure,
-                filler_words: 0
+                score_explanation: score.explanation || null,
+                filler_words: 0,
               });
               
               // Step 4: Speak AI response with prepared audio
@@ -885,24 +898,27 @@ const DebateRoom = () => {
                   : 'bg-card border-2 border-border'
               }`}>
                 <p className="whitespace-pre-wrap text-sm">{message.content}</p>
-                {message.score && (
-                  <div className={`mt-2 pt-2 border-t ${
-                    message.role === 'user' 
-                      ? 'border-primary-foreground/20' 
-                      : 'border-border'
-                  } space-y-1 text-xs`}>
-                    <div className="flex justify-between">
-                      <span>Clarity:</span>
-                      <span className="font-semibold">{message.score.clarity}/100</span>
+                {message.role === 'user' && message.score && (
+                  <div className="mt-2 pt-2 border-t border-primary-foreground/20 space-y-1.5 text-xs">
+                    <div className="grid grid-cols-3 gap-1 text-center">
+                      <div>
+                        <div className="text-primary-foreground/60">Clarity</div>
+                        <div className="font-bold">{message.score.clarity}</div>
+                      </div>
+                      <div>
+                        <div className="text-primary-foreground/60">Logic</div>
+                        <div className="font-bold">{message.score.logic}</div>
+                      </div>
+                      <div>
+                        <div className="text-primary-foreground/60">Structure</div>
+                        <div className="font-bold">{message.score.structure}</div>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Logic:</span>
-                      <span className="font-semibold">{message.score.logic}/100</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Structure:</span>
-                      <span className="font-semibold">{message.score.structure}/100</span>
-                    </div>
+                    {message.score.explanation && (
+                      <p className="text-[10px] text-primary-foreground/75 italic border-t border-primary-foreground/10 pt-1.5">
+                        {message.score.explanation}
+                      </p>
+                    )}
                   </div>
                 )}
               </Card>
