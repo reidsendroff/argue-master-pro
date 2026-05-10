@@ -1,73 +1,119 @@
-# Welcome to your Lovable project
+# ArgueMaster Pro
 
-## Project info
+> Debate any AI persona. Get destroyed. Get better.
 
-**URL**: https://lovable.dev/projects/e9b6bfa0-394d-428d-9436-50a25e807e80
+An AI debate coach that generates real-time, persona-driven argumentation with live voice delivery. Pick a topic, choose a side, and go head-to-head against AI opponents modeled after famous thinkers and public figures — each with their own rhetorical style, adapted to your skill level.
 
-## How can I edit this code?
+Built by Reid Sendroff as part of an AI Club initiative at Northern Highlands Regional High School to demonstrate how modern LLM tools can produce complete, interactive applications in days.
 
-There are several ways of editing your application.
+---
 
-**Use Lovable**
+## Features
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/e9b6bfa0-394d-428d-9436-50a25e807e80) and start prompting.
+- **10+ debate personas** — Obama, Ben Shapiro, Christopher Hitchens, Jordan Peterson, AOC, Socrates, Trump, and more, each with distinct speech patterns and rhetorical tactics
+- **4 difficulty levels** — Beginner, Intermediate, Expert, and Hell Mode (no mercy)
+- **Live voice I/O** — speak your arguments via microphone (Whisper STT), hear the AI respond in character (ElevenLabs TTS with persona-matched voices)
+- **Real-time scoring** — clarity, logic, structure, and persuasion power tracked per round
+- **Live coaching sidebar** — issues detected, coach tips, and argument analytics updated as you type
+- **Debate history** — sessions saved per user with round-by-round transcripts
 
-Changes made via Lovable will be committed automatically to this repo.
+## Tech Stack
 
-**Use your preferred IDE**
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui |
+| Backend | Supabase Edge Functions (Deno) |
+| Database | Supabase Postgres (with RLS) |
+| Auth | Supabase Auth |
+| Debate AI | OpenAI GPT-4o-mini |
+| Text-to-Speech | ElevenLabs (persona-mapped voices) + OpenAI TTS fallback |
+| Speech-to-Text | OpenAI Whisper |
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Getting Started
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Prerequisites
 
-Follow these steps:
+- Node.js 18+ and npm
+- A [Supabase](https://supabase.com) account
+- OpenAI API key
+- ElevenLabs API key
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Local Development
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+```bash
+# 1. Clone the repo
+git clone https://github.com/reidsendroff/argue-master-pro.git
+cd argue-master-pro
 
-# Step 3: Install the necessary dependencies.
-npm i
+# 2. Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# 3. Set up environment variables
+cp .env.example .env
+# Fill in your Supabase URL, anon key, and API keys
+
+# 4. Start the dev server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+App runs at `http://localhost:8080`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Supabase Setup
 
-**Use GitHub Codespaces**
+```bash
+# Install Supabase CLI
+npm install -g supabase
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Link your project
+npx supabase link --project-ref <your-project-ref>
 
-## What technologies are used for this project?
+# Apply the database migration
+npx supabase db push
 
-This project is built with:
+# Set edge function secrets
+npx supabase secrets set OPENAI_API_KEY=your_key ELEVENLABS_API_KEY=your_key
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Deploy edge functions
+npx supabase functions deploy debate-ai
+npx supabase functions deploy text-to-speech
+npx supabase functions deploy speech-to-text
+```
 
-## How can I deploy this project?
+### Environment Variables
 
-Simply open [Lovable](https://lovable.dev/projects/e9b6bfa0-394d-428d-9436-50a25e807e80) and click on Share -> Publish.
+Create a `.env` file with:
 
-## Can I connect a custom domain to my Lovable project?
+```
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key
+VITE_SUPABASE_PROJECT_ID=your_project_ref
+OPENAI_API_KEY=your_openai_key
+ELEVENLABS_API_KEY=your_elevenlabs_key
+```
 
-Yes, you can!
+## Project Structure
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```
+src/
+  pages/
+    Index.tsx          # Landing page
+    Auth.tsx           # Sign in / sign up
+    TopicSelection.tsx # Pick topic, side, persona, difficulty
+    DebateRoom.tsx     # Main debate interface
+    Results.tsx        # Post-debate summary
+  hooks/
+    useAuth.tsx        # Supabase auth hook
+  integrations/
+    supabase/          # Auto-generated Supabase client + types
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+supabase/
+  functions/
+    debate-ai/         # GPT-4o-mini persona debate engine
+    text-to-speech/    # ElevenLabs + OpenAI TTS
+    speech-to-text/    # Whisper transcription
+  migrations/          # Postgres schema
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE)
