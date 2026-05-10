@@ -28,65 +28,65 @@ const POPULAR_TOPICS = [
 ];
 
 const PERSONAS = [
-  { 
-    id: 'obama', 
-    name: 'Obama', 
+  {
+    id: 'obama',
+    name: 'Obama',
     emoji: '🎙️',
-    description: 'Calm'
+    description: 'Unifying & moral'
   },
-  { 
-    id: 'shapiro', 
-    name: 'Shapiro', 
+  {
+    id: 'shapiro',
+    name: 'Shapiro',
     emoji: '⚡',
-    description: 'Rapid-fire facts'
+    description: 'Facts at warp speed'
   },
-  { 
-    id: 'hitchens', 
-    name: 'Hitchens', 
+  {
+    id: 'hitchens',
+    name: 'Hitchens',
     emoji: '🎭',
-    description: 'Witty'
+    description: 'Razor-sharp wit'
   },
-  { 
-    id: 'peterson', 
-    name: 'Peterson', 
+  {
+    id: 'peterson',
+    name: 'Peterson',
     emoji: '🧠',
-    description: 'Deep philosophical'
+    description: 'Philosophical trap'
   },
-  { 
-    id: 'aoc', 
-    name: 'AOC', 
+  {
+    id: 'aoc',
+    name: 'AOC',
     emoji: '✊',
-    description: 'Passionate'
+    description: 'Moral fire'
   },
-  { 
-    id: 'socrates', 
-    name: 'Socrates', 
+  {
+    id: 'socrates',
+    name: 'Socrates',
     emoji: '🏛️',
-    description: 'Questions everything'
+    description: 'Questions that destroy'
   },
-  { 
-    id: 'trump', 
-    name: 'Trump', 
+  {
+    id: 'trump',
+    name: 'Trump',
     emoji: '🇺🇸',
-    description: 'Rhetorical'
+    description: 'Win at all costs'
   },
-  { 
-    id: 'analyst', 
-    name: 'Balanced Analyst', 
+  {
+    id: 'analyst',
+    name: 'Analyst',
     emoji: '⚖️',
-    description: 'Neutral'
+    description: 'Cold hard data'
   },
-  { 
-    id: 'professor', 
-    name: 'Calm Professor', 
+  {
+    id: 'professor',
+    name: 'Professor',
     emoji: '👨‍🏫',
-    description: 'Patient'
+    description: 'Structured logic'
   },
-  { 
-    id: 'youtuber', 
-    name: 'Aggressive YouTuber', 
+  {
+    id: 'youtuber',
+    name: 'YouTuber',
     emoji: '📹',
-    description: 'Hot takes'
+    description: 'Chaotic hot takes'
   },
 ];
 
@@ -364,9 +364,9 @@ const TopicSelection = () => {
               <button
                 key={persona.id}
                 onClick={() => setSelectedPersona(persona.id)}
-                className={`p-2.5 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
+                className={`p-2.5 rounded-xl border-2 transition-all flex flex-col items-center gap-1 hover:scale-105 hover:shadow-md ${
                   selectedPersona === persona.id
-                    ? 'border-primary bg-primary/10 shadow-lg'
+                    ? 'border-primary bg-primary/10 shadow-lg scale-105'
                     : 'border-border bg-card/50 hover:border-primary/50'
                 }`}
               >

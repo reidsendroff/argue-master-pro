@@ -47,6 +47,7 @@ const DebateRoom = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lockedVoice, setLockedVoice] = useState<{voiceId: string, provider: string} | null>(null);
+  const [userProfile, setUserProfile] = useState<{total_debates: number, win_rate: number, elo: number, level: string} | null>(null);
   const [liveAnalytics, setLiveAnalytics] = useState({
     structure: 0,
     evidenceQuality: 0,
@@ -78,6 +79,14 @@ const DebateRoom = () => {
         navigate('/auth');
         return;
       }
+
+      // Fetch user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('total_debates, win_rate, elo, level')
+        .eq('user_id', user.id)
+        .single();
+      if (profile) setUserProfile(profile);
 
       if (!state) {
         console.log('No state, redirecting to /topics');
@@ -235,10 +244,16 @@ const DebateRoom = () => {
 
   const getPersonaOpening = () => {
     const personaIntros: Record<string, string> = {
-      professor: `I'll be arguing the opposite position on "${state?.topic}". Present your case, and I'll show you where the logical gaps are. No soft arguments will pass here.`,
-      debater: `"${state?.topic}"? Wrong. Dead wrong. I'm here to prove you're on the losing side of this debate. Bring your best argument - you'll need it.`,
-      analyst: `You're taking a position on "${state?.topic}" and I'm taking the opposite. I'll dismantle your case with data and logic. Make your opening statement.`,
-      trump: `Look, "${state?.topic}" - everybody's talking about it. And I'm going to show you why your position is, frankly, a total disaster. Nobody debates better than me, believe me. Make your argument.`
+      obama: `Let me be clear about "${state?.topic}". I respect your position — but I believe you're on the wrong side of this argument. Make your case, and I'll show you why the evidence points elsewhere.`,
+      shapiro: `"${state?.topic}" — okay, let's get into it. Here's the problem with your position: the facts don't support it. I'll give you exactly one chance to prove me wrong. Go.`,
+      hitchens: `"${state?.topic}" — how delightfully misguided of you to argue that side. I've read the literature, studied the history, and I can tell you with some confidence: you're wrong. Elegantly, perhaps irreversibly wrong. Proceed.`,
+      peterson: `The question of "${state?.topic}" is far deeper than you may realize. You're ignoring ancient patterns of meaning here. Before you argue, ask yourself: do you truly understand the underlying structure of what you're defending?`,
+      aoc: `We need to talk about "${state?.topic}" — because real people's lives are affected by this. I'm going to challenge your position on moral and practical grounds. What's your opening argument?`,
+      socrates: `Ah, you've chosen to argue "${state?.topic}". Fascinating. But tell me — do you truly understand what you're claiming? Let us begin, and I suspect we'll find some contradictions worth examining.`,
+      trump: `"${state?.topic}" — look, everybody's talking about it. And I'm going to show you why your position is, frankly, a total disaster. Nobody knows more about this than me, believe me. Make your argument. Let's see what you've got.`,
+      analyst: `On the question of "${state?.topic}", let's set aside emotion and work with the data. I'll be arguing the opposing position using evidence and structured logic. Your move.`,
+      professor: `I'll be taking the opposing position on "${state?.topic}". Present your claim clearly, support it with reasoning, and I'll engage you directly. Logic and structure will determine who wins this.`,
+      youtuber: `OKAY OKAY — "${state?.topic}" — this is WILD. Your take is probably going to be bad and I'm absolutely here for it. Drop your argument, let's GO. Chat, they're about to say something crazy.`,
     };
     return personaIntros[state?.persona] || personaIntros.professor;
   };
@@ -552,12 +567,18 @@ const DebateRoom = () => {
     // End debate after 5 rounds
     if (round >= 5) {
       setTimeout(() => {
-        navigate('/results', { 
-          state: { 
-            messages, 
-            totalScore: totalScore / round,
-            topic: state?.topic 
-          } 
+        const finalUserScore = totalScore / round;
+        const finalAiScore = aiScore / round;
+        navigate('/results', {
+          state: {
+            messages,
+            totalScore: finalUserScore,
+            aiScore: finalAiScore,
+            didUserWin: finalUserScore > finalAiScore,
+            topic: state?.topic,
+            persona: state?.persona,
+            difficulty: state?.difficulty,
+          }
         });
       }, 2000);
     }
@@ -829,6 +850,28 @@ const DebateRoom = () => {
         </div>
       </div>
 
+      {/* Mobile Stats Bar */}
+      <div className="block lg:hidden border-b border-border bg-card/30 px-3 py-2 flex-shrink-0">
+        <div className="grid grid-cols-4 gap-2 text-center text-[10px]">
+          <div>
+            <p className="text-muted-foreground">Structure</p>
+            <p className="font-bold text-primary">{liveAnalytics.structure}/10</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Evidence</p>
+            <p className="font-bold text-primary">{liveAnalytics.evidenceQuality}/10</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Confidence</p>
+            <p className="font-bold text-primary">{liveAnalytics.confidence}%</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Persuasion</p>
+            <p className="font-bold text-primary">{liveAnalytics.persuasionPower}%</p>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content - Fixed Height */}
       <div className="flex-1 overflow-hidden flex min-h-0">
         {/* Messages - Center - Scrollable */}
@@ -971,19 +1014,21 @@ const DebateRoom = () => {
             <div className="space-y-1.5 text-[10px]">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Debates</span>
-                <span className="font-semibold">0</span>
+                <span className="font-semibold">{userProfile?.total_debates ?? 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Win Rate</span>
-                <span className="font-semibold text-green-600 dark:text-green-400">0%</span>
+                <span className="font-semibold text-green-600 dark:text-green-400">
+                  {userProfile?.win_rate ? `${Math.round(userProfile.win_rate)}%` : '0%'}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Current Level</span>
-                <span className="font-semibold text-purple-600 dark:text-purple-400">Novice</span>
+                <span className="font-semibold text-purple-600 dark:text-purple-400">{userProfile?.level || 'Novice'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">ELO Rating</span>
-                <span className="font-semibold text-blue-600 dark:text-blue-400">1000</span>
+                <span className="font-semibold text-blue-600 dark:text-blue-400">{userProfile?.elo ?? 1200}</span>
               </div>
             </div>
           </Card>
